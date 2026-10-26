@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/pagespeed.js": {
+      "maxDuration": 120
+    },
+    "api/audit.js": {
+      "maxDuration": 30
+    }
+  }
+}
