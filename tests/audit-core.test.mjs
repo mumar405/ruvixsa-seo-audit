@@ -77,3 +77,21 @@ test('link markup reports missing href and empty accessible names; Open Graph va
   assert.equal(og.status, 'Issue');
   assert.match(og.evidence, /og:image absolute HTTP\(S\) URL: invalid/);
 });
+
+
+test('robots none directive is treated as noindex', () => {
+  const html = '<html lang="en"><head><meta charset="utf-8"><title>Example</title><meta name="robots" content="none"></head><body></body></html>';
+  const r = analyzeHtml(html, 'https://example.com/', { status: 200 });
+  const robots = r.checks.find(c => c.name === 'Robots directives');
+  assert.equal(robots.status, 'Issue');
+  assert.match(robots.evidence, /noindex\/none directive was detected/);
+});
+
+test('an unnamed anchor without missing href is Review, not a definite error', () => {
+  const html = '<html lang="en"><head><meta charset="utf-8"><title>Example</title></head><body><a href="/menu"><svg></svg></a></body></html>';
+  const r = analyzeHtml(html, 'https://example.com/', { status: 200 });
+  const links = r.checks.find(c => c.name === 'Link markup');
+  assert.equal(links.status, 'Review');
+  assert.match(links.evidence, /1 without href/);
+  assert.match(links.evidence, /possibly unnamed link/);
+});
