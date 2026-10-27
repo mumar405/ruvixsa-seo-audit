@@ -92,6 +92,6 @@ test('an unnamed anchor without missing href is Review, not a definite error', (
   const r = analyzeHtml(html, 'https://example.com/', { status: 200 });
   const links = r.checks.find(c => c.name === 'Link markup');
   assert.equal(links.status, 'Review');
-  assert.match(links.evidence, /1 without href/);
+  assert.match(links.evidence, /0 without href/);
   assert.match(links.evidence, /possibly unnamed link/);
 });
