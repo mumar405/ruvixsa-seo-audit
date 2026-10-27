@@ -84,9 +84,11 @@ export function analyzeHtml(html, finalUrl, responseMeta = {}) {
   const robotContent = robotTags.map(t => `${attr(t,'name')}: ${attr(t,'content')}`).join('; ');
   const xrobots = responseMeta.xRobots || '';
   const directives = robotContent + ' ' + xrobots;
-  const noindex = /\bnoindex\b/i.test(directives), index = /\bindex\b/i.test(directives);
+  // "none" is equivalent to "noindex, nofollow" for robots directives.
+  const noindex = /\b(?:noindex|none)\b/i.test(directives);
+  const index = /\bindex\b/i.test(directives);
   const robotConflict = noindex && index;
-  add(checks, 'Robots directives', robotConflict ? 'Issue' : noindex ? 'Issue' : robotTags.length || xrobots ? 'Pass' : 'Review', `Meta directives: ${robotContent || 'not present'}; X-Robots-Tag: ${xrobots || 'not present'}.${robotConflict ? ' Conflicting index/noindex tokens were detected.' : ''}`, 'Confirm the page is intentionally indexable. This check does not verify actual Google indexing.', 3);
+  add(checks, 'Robots directives', robotConflict ? 'Issue' : noindex ? 'Issue' : robotTags.length || xrobots ? 'Pass' : 'Review', `Meta directives: ${robotContent || 'not present'}; X-Robots-Tag: ${xrobots || 'not present'}.${noindex ? ' A noindex/none directive was detected.' : ''}${robotConflict ? ' Conflicting index/noindex tokens were detected; noindex takes precedence for this warning.' : ''}`, 'Confirm the page is intentionally indexable. This check inspects fetched meta/header directives only; it does not verify robots.txt or actual Google indexing.', 3);
 
   const viewport = metas.filter(t => /^viewport$/i.test(attr(t, 'name').trim()));
   const vp = viewport[0] ? attr(viewport[0], 'content') : '';
@@ -157,7 +159,8 @@ export function analyzeHtml(html, finalUrl, responseMeta = {}) {
   for (const m of noHrefTags.slice(0,3)) linkExamples.push(`missing href near source character ${m.index}`);
   for (const m of unnamedLinks.slice(0,3)) linkExamples.push(`possibly unnamed link near source character ${m.index}`);
   const noHref = noHrefTags.length, noAccessibleName = unnamedLinks.length;
-  add(checks, 'Link markup', anchors.length ? (noHref || noAccessibleName ? 'Issue' : 'Pass') : 'Not Tested', `${anchors.length} anchor element(s); ${noHref} without href; ${noAccessibleName} without detected text/accessibility label.${linkExamples.length ? ' Examples: ' + linkExamples.join('; ') + '.' : ''} Destination URLs, broken targets, and rendered accessibility names were not fully tested.`, 'Give navigation links a valid href and every link an accessible name through visible text, an aria-label, or meaningful image alt text. Empty anchors used by scripts may need manual review.', 1);
+  const linkStatus = !anchors.length ? 'Not Tested' : noHref ? 'Issue' : noAccessibleName ? 'Review' : 'Pass';
+  add(checks, 'Link markup', linkStatus, `${anchors.length} anchor element(s); ${noHref} without href; ${noAccessibleName} without detected text/accessibility label.${linkExamples.length ? ' Examples: ' + linkExamples.join('; ') + '.' : ''} This source scan does not verify destination status, relative URL resolution, or the browser-computed accessible name.`, 'Fix anchors missing href when they are intended as links. Review empty/unnamed anchors manually; script-controlled anchors and icon-only links can be intentional if accessible names are supplied at runtime.', 1);
 
   const markupFindings = scanMarkup(html);
   const severeMarkup = markupFindings.filter(f => ['quote','tag','comment'].includes(f.kind));
