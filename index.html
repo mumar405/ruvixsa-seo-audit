@@ -27,7 +27,7 @@ button,input{font:inherit}button{cursor:pointer}.ambient{position:fixed;inset:0;
 
 
 @media print{body{background:#fff!important;color:#111!important}.topbar,.hero,.auditbox,.microcopy,.demo-note,.scanpanel,.results,.codefix,#howSection,.footer,.toast,.perf-note,.perf-controls,.perf-export-actions{display:none!important}#performancePanel{display:block!important;margin:0!important;padding:0!important;border:0!important;background:#fff!important;color:#111!important}#perfOutput{display:block!important}.card,.perf-list,.perf-metrics{background:#fff!important;color:#111!important;border-color:#ccc!important;box-shadow:none!important;break-inside:avoid}.perf-row,.perf-score,.perf-list h3,.perf-state{color:#111!important}.perf-row strong{color:#111!important}.red,.amber,.green{color:#111!important}a{color:#111!important}}
-.top-export-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin:12px 0 22px}.top-export-actions button{min-height:42px}@media(max-width:560px){.top-export-actions{display:grid;grid-template-columns:1fr}.top-export-actions button{width:100%}}\n</style>
+.top-export-actions{display:flex;align-items:center;justify-content:flex-start;gap:10px;flex-wrap:nowrap;margin:12px 0 18px}.top-export-actions button{min-height:42px;white-space:nowrap;flex:0 1 auto}@media(max-width:560px){.top-export-actions{display:flex;flex-direction:row;gap:7px}.top-export-actions button{width:auto;min-width:0;flex:1;padding:9px 7px;font-size:11px;white-space:normal;line-height:1.25}}\n</style>
 </head>
 <body>
 <div class="ambient" aria-hidden="true"><div class="orb a"></div><div class="orb b"></div></div>
@@ -36,7 +36,6 @@ button,input{font:inherit}button{cursor:pointer}.ambient{position:fixed;inset:0;
 <a class="brand" href="#top" aria-label="Ruvixsa home"><span class="brandmark"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M9 25V7h7.5a5.5 5.5 0 0 1 0 11H9" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="m17 18 7 7" stroke="#35e0c1" stroke-width="3.2" stroke-linecap="round"/></svg></span><span>ruvixsa<em>.</em></span></a>
 <div class="topright"><span class="pill"><span class="dot"></span> Free audit engine</span><button class="plainbtn" id="howBtn" type="button">How it works ↗</button></div>
 </header>
-<div class="actions top-export-actions" aria-label="Complete report export"><button class="plainbtn" id="copyCompleteBtn" type="button">Copy Complete Report</button><button class="plainbtn" id="pdfCompleteBtn" type="button">Download Complete PDF</button></div>
 <main id="top">
 <section class="hero">
 <div class="eyebrow"><span class="spark">✦</span> SMART SEO. CLEAR ANSWERS.</div>
@@ -51,6 +50,7 @@ button,input{font:inherit}button{cursor:pointer}.ambient{position:fixed;inset:0;
 <div class="perf-controls"><span class="sub">Mobile aur desktop dono ke tests ek sath run honge.</span></div>
 <div class="perf-state" id="perfState" role="status">PageSpeed report will start automatically when you press Analyze website.</div>
 <div id="perfOutput" style="display:none">
+<div class="actions top-export-actions" aria-label="Complete report export"><button class="plainbtn" id="copyCompleteBtn" type="button">Copy Complete Report</button><button class="plainbtn" id="pdfCompleteBtn" type="button">Download Complete PDF</button></div>
 <section class="perf-device-report"><h2 class="perf-device-title">📱 Mobile Performance Report</h2><div class="perf-grid" id="perfScoresMobile"></div><div class="perf-metrics"><div class="perf-list"><h3>Timing & Core Web Vitals — Mobile</h3><div id="perfVitalsMobile"></div></div><div class="perf-list"><h3>Resource & optimization — Mobile</h3><div id="perfResourcesMobile"></div></div></div><div class="perf-list perf-issues"><h3>Recommendations — Mobile</h3><div id="perfOpportunitiesMobile"></div></div></section>
 <section class="perf-device-report"><h2 class="perf-device-title">🖥️ Desktop Performance Report</h2><div class="perf-grid" id="perfScoresDesktop"></div><div class="perf-metrics"><div class="perf-list"><h3>Timing & Core Web Vitals — Desktop</h3><div id="perfVitalsDesktop"></div></div><div class="perf-list"><h3>Resource & optimization — Desktop</h3><div id="perfResourcesDesktop"></div></div></div><div class="perf-list perf-issues"><h3>Recommendations — Desktop</h3><div id="perfOpportunitiesDesktop"></div></div></section></div>
 <p class="perf-note">Limits: PageSpeed API may rate-limit requests. Lab CLS/TBT/LCP differ from field Core Web Vitals; INP and field data are shown only if the API supplies them. This test does not render or modify your site inside this tool.</p>
