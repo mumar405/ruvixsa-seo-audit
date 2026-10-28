@@ -72,8 +72,8 @@ export function analyzeHtml(html, finalUrl, responseMeta = {}) {
   const jumps = []; for (let n=1;n<htags.length;n++) if (htags[n].level > htags[n-1].level + 1) jumps.push(`H${htags[n-1].level}→H${htags[n].level}`);
   add(checks, 'Heading level sequence', jumps.length ? 'Issue' : htags.length ? 'Pass' : 'Not Tested', htags.length ? (jumps.length ? `Heading level jumps found: ${jumps.join(', ')}.` : 'No skipped heading levels detected in source order.') : 'No headings to inspect.', 'Keep heading levels logically nested for a clearer document outline; this is a structure/accessibility recommendation, not a direct ranking guarantee.', 1);
 
-  const links = [...html.matchAll(/<link\\b[^>]*>/gi)].map(m => m[0]);
-  const canonicals = links.filter(t => attr(t, 'rel').toLowerCase().split(/\\s+/).includes('canonical'));
+  const links = [...html.matchAll(/<link\b[^>]*>/gi)].map(m => m[0]);
+  const canonicals = links.filter(t => attr(t, 'rel').toLowerCase().split(/\s+/).includes('canonical'));
   const canonicalHref = canonicals[0] ? attr(canonicals[0], 'href').trim() : '';
   let canonicalStatus = !canonicals.length ? 'Review' : canonicals.length > 1 || !canonicalHref ? 'Issue' : 'Pass';
   let canonicalEvidence = !canonicals.length
