@@ -75,10 +75,33 @@ export function analyzeHtml(html, finalUrl, responseMeta = {}) {
   const links = [...html.matchAll(/<link\b[^>]*>/gi)].map(m => m[0]);
   const canonicals = links.filter(t => attr(t, 'rel').toLowerCase().split(/\s+/).includes('canonical'));
   const canonicalHref = canonicals[0] ? attr(canonicals[0], 'href').trim() : '';
-  let canonicalIssue = canonicals.length > 1 || (canonicals.length === 1 && !canonicalHref);
-  let canonicalEvidence = !canonicals.length ? 'No canonical link was found. Absence is not automatically an error.' : `${canonicals.length} canonical link(s) found. First href: ${canonicalHref || '(empty href)'}.`;
-  if (canonicalHref) { try { const c = new URL(canonicalHref, finalUrl); if (!['http:','https:'].includes(c.protocol)) canonicalIssue = true; } catch { canonicalIssue = true; canonicalEvidence += ' Canonical href is not a valid URL.'; } }
-  add(checks, 'Canonical URL', !canonicals.length ? 'Review' : canonicalIssue ? 'Issue' : 'Pass', canonicalEvidence, 'If canonicalization is needed, provide one valid canonical URL pointing to the preferred page.', 2);
+  let canonicalStatus = !canonicals.length ? 'Review' : canonicals.length > 1 || !canonicalHref ? 'Issue' : 'Pass';
+  let canonicalEvidence = !canonicals.length
+    ? 'No canonical link was found. Absence is not automatically an error.'
+    : `${canonicals.length} canonical link(s) found. First href: ${canonicalHref || '(empty href)'}.`;
+  if (canonicalHref) {
+    try {
+      const canonical = new URL(canonicalHref, finalUrl);
+      if (!['http:', 'https:'].includes(canonical.protocol)) {
+        canonicalStatus = 'Issue';
+        canonicalEvidence += ' Canonical URL must use HTTP or HTTPS.';
+      } else {
+        canonical.hash = '';
+        const current = new URL(finalUrl);
+        current.hash = '';
+        if (canonicalStatus === 'Pass' && canonical.href !== current.href) {
+          canonicalStatus = 'Review';
+          canonicalEvidence += ` Canonical resolves to ${canonical.href}, which differs from the fetched page URL ${current.href}; this may be intentional, so verify the preferred URL.`;
+        } else if (canonicalStatus === 'Pass') {
+          canonicalEvidence += ' Canonical matches the fetched page URL.';
+        }
+      }
+    } catch {
+      canonicalStatus = 'Issue';
+      canonicalEvidence += ' Canonical href is not a valid URL.';
+    }
+  }
+  add(checks, 'Canonical URL', canonicalStatus, canonicalEvidence, 'Use one valid absolute HTTP(S) canonical URL. If it differs from the fetched page URL, confirm that the other URL is intentionally preferred; a different canonical is not automatically wrong.', 2);
 
   const robotTags = metas.filter(t => /^(robots|googlebot|bingbot)$/i.test(attr(t, 'name').trim()));
   const robotContent = robotTags.map(t => `${attr(t,'name')}: ${attr(t,'content')}`).join('; ');

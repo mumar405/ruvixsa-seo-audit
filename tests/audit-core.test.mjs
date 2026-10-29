@@ -95,3 +95,23 @@ test('an unnamed anchor without missing href is Review, not a definite error', (
   assert.match(links.evidence, /0 without href/);
   assert.match(links.evidence, /possibly unnamed link/);
 });
+
+
+test('canonical audit distinguishes matching, alternate, duplicate, missing and invalid canonicals', () => {
+  const page = 'https://example.com/page';
+  const run = (canonical) => analyzeHtml(
+    `<html lang="en"><head><title>Example</title>${canonical}</head><body></body></html>`,
+    page,
+    { status: 200 }
+  ).checks.find(c => c.name === 'Canonical URL');
+
+  assert.equal(run('<link rel="canonical" href="https://example.com/page">').status, 'Pass');
+  assert.equal(run('<link rel="canonical" href="/page">').status, 'Pass');
+  const alternate = run('<link rel="canonical" href="https://example.com/preferred-page">');
+  assert.equal(alternate.status, 'Review');
+  assert.match(alternate.evidence, /differs from the fetched page URL/);
+  assert.equal(run('<link rel="canonical" href="https://example.com/page"><link rel="canonical" href="https://example.com/page">').status, 'Issue');
+  assert.equal(run('<link rel="canonical" href="">').status, 'Issue');
+  assert.equal(run('<link rel="canonical" href="javascript:alert(1)">').status, 'Issue');
+  assert.equal(run('').status, 'Review');
+});
