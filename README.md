@@ -26,7 +26,7 @@ This package contains `index.html` (default Netlify entry), `seo-audit.html` (co
 - A `Pass` is only for the specific source check shown; it does not mean the whole page is SEO-perfect.
 - Repeated audits of identical HTML and identical response metadata produce the same checks and score. A changed HTML source fingerprint, HTTP status, or X-Robots-Tag response can legitimately change findings. The source ID is a fingerprint, not a quality score.
 - The browser-based local editor uses the same analyzer and scoring formula, but live HTTP response, rendered JavaScript, Core Web Vitals, and Google indexing remain Not Tested in local mode.
-- Review the security controls before production use. Server-side URL fetching is a sensitive feature; DNS pre-checks reduce risk but cannot eliminate every DNS-rebinding scenario in all deployment environments.
+- URL fetching rejects private or non-public DNS answers and pins a validated address for each connection, so the hostname is not resolved a second time after validation. Each redirect destination is checked separately. Keep platform egress controls in place as an additional production defense.
 
 ## Deploy on Netlify
 
