@@ -142,7 +142,7 @@ function render(data){
  const sameSource=Boolean(data.sourceHash&&priorHash&&data.sourceHash===priorHash);
  data.sourceComparison=!prior?'First audit for this URL':sameSource&&!changes.length?'Same HTML source as previous audit':sameSource?'Same HTML source; check statuses changed':'Fetched HTML changed since previous audit';
  lastReport=data;
- if(typeof data.sourceHtml==='string'&&data.sourceHtml){$('beforeCode').value=data.sourceHtml;$('afterCode').value=data.sourceHtml;}
+ const sourceHtml=typeof data.sourceHtml==='string'?data.sourceHtml:'';$('beforeCode').value=sourceHtml;$('afterCode').value=sourceHtml;$('beforeCode').dataset.sourceUrl=data.url||'';$('afterCode').dataset.sourceUrl=data.url||'';
  $('results').style.display='block';$('results').classList.add('show');
  $('resultUrl').textContent=data.url+' · HTTP '+data.status+' · '+data.bytes+' bytes inspected · '+data.sourceComparison+(data.sourceHash?' · Source ID '+data.sourceHash.slice(0,12):'');
  const compareCard=$('sourceCompareCard');
@@ -219,8 +219,18 @@ function applySafeFixes(html, report){
  const notes=[]; let out=html;
  const doc=new DOMParser().parseFromString(out,'text/html');
  // Mechanical fixes only; never invent page-specific title, description, image alt text, or headings.
- if(!doc.querySelector('meta[charset]')){
-   if(doc.head){doc.head.insertAdjacentHTML('afterbegin','<meta charset="utf-8">');notes.push('Added UTF-8 charset declaration.');out='<!doctype html>\n'+doc.documentElement.outerHTML;}
+ if(doc.head){
+   const charsetTags=[...doc.querySelectorAll('meta[charset]')];
+   const legacyCharsetTags=[...doc.querySelectorAll('meta[http-equiv]')].filter(el=>/^content-type$/i.test(el.getAttribute('http-equiv')||'')&&/charset\s*=/i.test(el.getAttribute('content')||''));
+   let primaryCharset=charsetTags[0];
+   if(!primaryCharset){primaryCharset=doc.createElement('meta');primaryCharset.setAttribute('charset','utf-8');notes.push('Added UTF-8 charset declaration.');}
+   else if((primaryCharset.getAttribute('charset')||'').trim().toLowerCase()!=='utf-8'){primaryCharset.setAttribute('charset','utf-8');notes.push('Corrected the existing charset declaration to UTF-8.');}
+   if(doc.head.firstChild!==primaryCharset)doc.head.insertBefore(primaryCharset,doc.head.firstChild);
+   const duplicateCount=Math.max(0,charsetTags.length-1)+legacyCharsetTags.filter(el=>el!==primaryCharset).length;
+   charsetTags.slice(1).forEach(el=>el.remove());
+   legacyCharsetTags.filter(el=>el!==primaryCharset).forEach(el=>el.remove());
+   if(duplicateCount)notes.push('Removed duplicate charset declarations and kept one UTF-8 declaration.');
+   if(notes.some(note=>/charset/i.test(note)))out='<!doctype html>\n'+doc.documentElement.outerHTML;
  }
  let d=new DOMParser().parseFromString(out,'text/html');
  if(!d.querySelector('meta[name="viewport"]')){
@@ -248,7 +258,7 @@ $('loadFixCode').addEventListener('click',()=>{
  $('fixResult').innerHTML=`<strong>Suggested HTML loaded into Edited HTML.</strong><br><b>Safe code changes:</b><ul>${noteHtml}</ul><b>Verified audit issues to review:</b><ul>${issueHtml}</ul><p>Title, description, headings, language, and image alt text are not invented automatically. Edit those using the evidence above, then press Re-test edited HTML.</p>`;
  toast('Edited HTML loaded. Review changes, then re-test.');
 });
-$('compareCode').addEventListener('click',()=>{const a=$('beforeCode').value,b=$('afterCode').value;if(!a||!b){$('fixResult').textContent='Paste both original and edited HTML to compare them.';return}const al=a.split(/\r?\n/),bl=b.split(/\r?\n/);let i=0;while(i<al.length&&i<bl.length&&al[i]===bl[i])i++;let end=0;while(end<al.length-i&&end<bl.length-i&&al[al.length-1-end]===bl[bl.length-1-end])end++;const removed=al.slice(i,al.length-end),added=bl.slice(i,bl.length-end);$('fixResult').innerHTML=`<strong>Text comparison (first changed region)</strong><br>Original lines: ${al.length}; edited lines: ${bl.length}.<br><span style="color:#ff9caa">− ${esc(removed.slice(0,8).join('\n')||'(no removed lines)').replace(/\n/g,'<br>')}</span><br><span style="color:#7cf0c9">+ ${esc(added.slice(0,8).join('\n')||'(no added lines)').replace(/\n/g,'<br>')}</span>`;});
+$('compareCode').addEventListener('click',()=>{const a=$('beforeCode').value,b=$('afterCode').value;if(!a||!b){$('fixResult').textContent='No original and edited HTML are loaded for this audit. Run the audit, then load the checked recommendations.';return}const sourceUrl=$('beforeCode').dataset.sourceUrl||lastReport?.url||'manually pasted HTML';const afterUrl=$('afterCode').dataset.sourceUrl||sourceUrl;if(sourceUrl!==afterUrl){$('fixResult').textContent='The original and edited HTML belong to different audit URLs. Run the audit again and load its recommendations.';return}if(a===b){$('fixResult').innerHTML='<strong>No text changes yet.</strong><br>Page: '+esc(sourceUrl)+'<br>Click “Load checked recommendations” first, then compare again.';return}const al=a.split(/\r?\n/),bl=b.split(/\r?\n/);let i=0;while(i<al.length&&i<bl.length&&al[i]===bl[i])i++;let end=0;while(end<al.length-i&&end<bl.length-i&&al[al.length-1-end]===bl[bl.length-1-end])end++;const removed=al.slice(i,al.length-end),added=bl.slice(i,bl.length-end);$('fixResult').innerHTML='<strong>Text comparison (first changed region)</strong><br>Page: '+esc(sourceUrl)+'<br>Original lines: '+al.length+'; edited lines: '+bl.length+'.<br><span style="color:#ff9caa">− '+esc(removed.slice(0,8).join('\n')||'(no removed lines)').replace(/\n/g,'<br>')+'</span><br><span style="color:#7cf0c9">+ '+esc(added.slice(0,8).join('\n')||'(no added lines)').replace(/\n/g,'<br>')+'</span>';});
 $('retestCode').addEventListener('click',()=>{const html=$('afterCode').value;if(!html.trim()){$('fixResult').textContent='Paste edited HTML first.';return}const r=localHtmlChecks(html);$('fixResult').innerHTML='<strong>Local HTML re-test results</strong><br><b>Source audit score:</b> '+(r.score.score===null?'Not available':r.score.score+'/100')+' ('+r.score.scoredChecks+' scored checks; Not Tested excluded)<br>'+r.full.checks.map(c=>`<div style="padding:6px 0;border-top:1px solid #ffffff12"><b>${esc(c.status)} — ${esc(c.name)}</b><br>${esc(c.evidence)}<br><span style="color:#9ca9c5">${esc(c.recommendation)}</span></div>`).join('')+'<br><strong>Headings H1–H6:</strong> '+(r.headings.length?r.headings.map(h=>`H${h.level}: ${esc(h.text||'(empty)')}`).join(' · '):'None found')+'<br><em>Same analyzer and scoring formula as live audit. HTTP response, rendered JavaScript, and Core Web Vitals remain Not Tested in local mode.</em>';});
 $('downloadCode').addEventListener('click',()=>{const html=$('afterCode').value;if(!html.trim()){toast('Paste HTML before downloading.');return}const blob=new Blob([html],{type:'text/html;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='ruvixsa-edited-page.html';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
 
