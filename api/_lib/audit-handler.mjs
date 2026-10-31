@@ -2,6 +2,9 @@ import { createHash } from 'node:crypto';
 import { analyzeHtml } from '../../audit-core.mjs';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { Readable } from 'node:stream';
+import http from 'node:http';
+import https from 'node:https';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -47,13 +50,14 @@ async function ensurePublicDns(url) {
   const ipType = isIP(host);
   if (ipType === 4 && privateV4(host)) throw Error('Local/private network targets are blocked.');
   if (ipType === 6 && privateV6(host)) throw Error('Local/private network targets are blocked.');
-  if (ipType) return;
+  if (ipType) return [{ address: host, family: ipType }];
   let records;
   try { records = await lookup(host, { all: true, verbatim: true }); }
   catch { throw Error('The website hostname could not be resolved. Check the URL and DNS.'); }
   if (!records.length || records.some(r => r.family === 4 ? privateV4(r.address) : privateV6(r.address))) {
     throw Error('The website resolves to a local or non-public IP address and was blocked.');
   }
+  return records;
 }
 function decodeEntities(s = '') {
   return s.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'").replace(/&#(\d+);/g, (_, n) => { try { return String.fromCodePoint(Math.min(Number(n), 0x10ffff)); } catch { return ''; } });
@@ -65,15 +69,44 @@ function attr(tag, name) {
 }
 function addCheck(checks, name, status, evidence, recommendation) { checks.push({ name, status, evidence, recommendation }); }
 async function fetchWithTimeout(url) {
-  await ensurePublicDns(url);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  try {
-    return await fetch(url, { redirect: 'manual', signal: controller.signal, headers: {
-      'user-agent': 'RuvixsaSEOAudit/1.1 (+HTML source inspection)',
-      'accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.1'
-    } });
-  } finally { clearTimeout(timer); }
+  const addresses = await ensurePublicDns(url);
+  const transport = url.protocol === 'https:' ? https : http;
+  return new Promise((resolve, reject) => {
+    let timer;
+    const request = transport.request(url, {
+      method: 'GET',
+      agent: false,
+      lookup(_hostname, options, callback) {
+        const pinned = addresses.map(({ address, family }) => ({ address, family }));
+        if (options && typeof options === 'object' && options.all) callback(null, pinned);
+        else callback(null, pinned[0].address, pinned[0].family);
+      },
+      headers: {
+        'user-agent': 'RuvixsaSEOAudit/1.1 (+HTML source inspection)',
+        'accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.1'
+      }
+    }, response => {
+      const clearTimer = () => clearTimeout(timer);
+      response.once('end', clearTimer);
+      response.once('close', clearTimer);
+      const headers = {
+        get(name) {
+          const value = response.headers[String(name).toLowerCase()];
+          return Array.isArray(value) ? value.join(', ') : value ?? null;
+        }
+      };
+      resolve({ status: response.statusCode || 0, headers, body: Readable.toWeb(response) });
+    });
+    timer = setTimeout(() => {
+      const error = Object.assign(Error('The website took too long to respond (10-second limit).'), { name: 'AbortError' });
+      request.destroy(error);
+    }, TIMEOUT_MS);
+    request.on('error', error => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    request.end();
+  });
 }
 async function readLimited(response) {
   const reader = response.body?.getReader();
@@ -84,13 +117,13 @@ async function readLimited(response) {
   try {
     while (true) {
       const { done, value } = await reader.read();
-      if (done) { if (timedOut) throw Error('The website took too long to send its HTML (10-second limit).'); break; }
+      if (done) { if (timedOut) throw Object.assign(Error('The website took too long to send its HTML (10-second limit).'), { status: 504 }); break; }
       size += value.byteLength;
       if (size > MAX_BYTES) { await reader.cancel(); throw Object.assign(Error('HTML response exceeds the 1.5 MB audit limit.'), { status: 413 }); }
       chunks.push(value);
     }
   } catch (e) {
-    if (e.name === 'AbortError') throw Error('The website took too long to send its HTML (10-second limit).');
+    if (e.name === 'AbortError') throw Object.assign(Error('The website took too long to send its HTML (10-second limit).'), { status: 504 });
     throw e;
   } finally { clearTimeout(timer); }
   const bytes = new Uint8Array(size); let offset = 0;
