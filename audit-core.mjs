@@ -147,7 +147,7 @@ export function analyzeHtml(html, finalUrl, responseMeta = {}) {
   const og = metas.filter(t => /^og:/i.test(attr(t, 'property').trim()));
   const requiredOg = ['og:title','og:description','og:image','og:url'];
   const ogMissing = requiredOg.filter(name => !og.some(t => attr(t,'property').trim().toLowerCase() === name && !!attr(t,'content').trim()));
-  const ogDuplicates = requiredOg.filter(name => og.filter(t => attr(t,'property').trim().toLowerCase() === name).length > 1);
+  const ogDuplicates = requiredOg.filter(name => name !== 'og:image' && og.filter(t => attr(t,'property').trim().toLowerCase() === name).length > 1);
   const ogImageTag = og.find(t => attr(t,'property').trim().toLowerCase() === 'og:image' && attr(t,'content').trim());
   const ogUrlTag = og.find(t => attr(t,'property').trim().toLowerCase() === 'og:url' && attr(t,'content').trim());
   const validateAbsoluteHttpUrl = value => { try { const u = new URL(value); return ['http:','https:'].includes(u.protocol) && !!u.hostname; } catch { return false; } };
@@ -155,7 +155,7 @@ export function analyzeHtml(html, finalUrl, responseMeta = {}) {
   const badOgUrl = !!ogUrlTag && !validateAbsoluteHttpUrl(attr(ogUrlTag,'content').trim());
   const ogIssues = ogMissing.length || ogDuplicates.length || badOgImage || badOgUrl;
   const ogEvidence = `${og.length} Open Graph tag(s). Missing/empty common fields: ${ogMissing.join(', ') || 'none'}. Duplicate required fields: ${ogDuplicates.join(', ') || 'none'}. og:image absolute HTTP(S) URL: ${ogImageTag ? (badOgImage ? 'invalid' : 'valid format') : 'not available'}. og:url absolute HTTP(S) URL: ${ogUrlTag ? (badOgUrl ? 'invalid' : 'valid format') : 'not available'}. Image fetch/social-platform preview was not tested.`;
-  add(checks, 'Open Graph tags', ogIssues ? 'Issue' : 'Pass', ogEvidence, 'Use one non-empty og:title, og:description, og:image, and og:url. Image and page URLs should be absolute HTTP(S) URLs; test the final preview with each social platform because this source audit cannot confirm image fetchability.', 1);
+  add(checks, 'Open Graph tags', ogIssues ? 'Issue' : 'Pass', ogEvidence, 'Use non-empty og:title, og:description, og:image, and og:url. Multiple og:image tags are allowed when providing alternate preview images. Image and page URLs should be absolute HTTP(S) URLs; test the final preview with each social platform because this source audit cannot confirm image fetchability.', 1);
 
   const ld = [...html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script\s*>/gi)];
   let validLd = 0, badLd = 0; const ldErrors = [];
